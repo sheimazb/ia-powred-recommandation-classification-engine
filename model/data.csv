@@ -1,0 +1,5 @@
+message,category
+"Product with ID not found in DB",DataNotFoundException
+"User with given ID not found",DataNotFoundException
+"Email is not correctly formatted",ValidationException
+"Token is expired or invalid",SecurityException
