@@ -5,3 +5,9 @@ joblib
 scikit-learn
 pandas
 openai
+sentence-transformers
+faiss-cpu
+numpy
+sqlalchemy
+psycopg2-binary
+python-dotenv
