@@ -20,40 +20,37 @@ class LogRecommendationSystem:
     Uses semantic and syntactic matching to find similar logs and potential solutions.
     """
     
-    # Static patterns for log type identification
     LOG_PATTERNS = {
-        # Frontend frameworks
-        'react': [r'react(-dom)?\.', r'invalid hook call', r'cannot update a component'],
-        'angular': [r'(angular|ng)\s?(error|warning)', r'ngError', r'Expression has changed after it was checked'],
-        'vue': [r'vue\.', r'\[Vue warn\]', r'Avoid mutating a prop directly'],
-        'javascript': [r'TypeError', r'ReferenceError', r'SyntaxError', r'Uncaught Error', r'Cannot read properties'],
-        
-        # Backend frameworks
         'django': [r'django\.', r'DoesNotExist', r'ImproperlyConfigured', r'OperationalError'],
         'flask': [r'flask\.', r'werkzeug\.', r'jinja2\.'],
         'spring': [r'org\.springframework', r'NullPointerException', r'IllegalArgumentException'],
         'rails': [r'ActionController', r'ActiveRecord', r'NameError'],
         'node': [r'node:', r'npm ERR!', r'Error: Cannot find module'],
         
-        # Database related
+       
         'sql': [r'sql\.', r'sqlalchemy\.', r'SELECT', r'INSERT', r'UPDATE', r'DELETE', r'syntax error'],
         'mongodb': [r'MongoError', r'MongoNetworkError'],
         
-        # Infrastructure and deployment
+       
         'docker': [r'docker:', r'container', r'image'],
         'kubernetes': [r'k8s\.', r'pod', r'namespace', r'deployment', r'kubectl'],
         'aws': [r'AWS\.', r'Error executing'],
         'nginx': [r'nginx:', r'failed \('],
         
-        # General server errors
+        'react': [r'react(-dom)?\.', r'invalid hook call', r'cannot update a component'],
+        'angular': [r'(angular|ng)\s?(error|warning)', r'ngError', r'Expression has changed after it was checked'],
+        'vue': [r'vue\.', r'\[Vue warn\]', r'Avoid mutating a prop directly'],
+        'javascript': [r'TypeError', r'ReferenceError', r'SyntaxError', r'Uncaught Error', r'Cannot read properties'],
+        
+       
         'server': [r'timeout', r'memory', r'cpu', r'disk', r'space', r'resource', r'limit', r'server'],
         'network': [r'timeout', r'connection refused', r'network', r'unreachable', r'dns', r'resolve'],
         
-        # .NET specific patterns
+       
         'dotnet': [r'System\.[A-Za-z]+Exception', r'\.NET', r'Microsoft\.', r'\.dll', r'\.exe', r'\.pdb']
     }
     
-    # Common log severity indicators
+   
     SEVERITY_INDICATORS = {
         'CRITICAL': ['critical', 'fatal', 'emerg', 'alert', 'panic'],
         'ERROR': ['error', 'severe', 'err', 'failed', 'failure', 'exception'],
@@ -64,7 +61,7 @@ class LogRecommendationSystem:
     
     def __init__(self, 
                  model_name: str = 'all-MiniLM-L6-v2', 
-                 min_similarity_threshold: float = 0.55,  # Lowered from 0.65
+                 min_similarity_threshold: float = 0.4,  # Lowered from 0.65
                  min_term_ratio: float = 0.10):           # Lowered from 0.12
         """
         Initialize the enhanced recommendation system
@@ -140,43 +137,33 @@ class LogRecommendationSystem:
         """Normalize log text by removing variable parts like timestamps, IDs, and memory addresses"""
         if not log_text:
             return ""
-            
-        # Replace common variable patterns with placeholders
         normalized = log_text
-        
-        # Replace timestamps (various formats)
         normalized = re.sub(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:[T ]\d{1,2}:\d{1,2}:\d{1,2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?', 
                            'TIMESTAMP', normalized)
         normalized = re.sub(r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}(?: \d{1,2}:\d{1,2}:\d{1,2})?', 
                            'TIMESTAMP', normalized)
         normalized = re.sub(r'\d{1,2}:\d{1,2}:\d{1,2}(?:\.\d+)?', 
                            'TIME', normalized)
-                           
-        # Replace UUIDs, hashes, and IDs
         normalized = re.sub(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 
                            'UUID', normalized)
         normalized = re.sub(r'[0-9a-f]{32}', 'HASH', normalized)
         normalized = re.sub(r'[0-9a-f]{50}', 'HASH', normalized)
         normalized = re.sub(r'id=["\']\w+["\']', 'id=ID', normalized)
         
-        # Replace memory addresses and line numbers (but preserve file names)
         normalized = re.sub(r'0x[0-9a-f]+', 'MEMORY_ADDR', normalized)
         normalized = re.sub(r'(\.(?:js|jsx|ts|tsx|py|java|rb|php|go|cs|rs|c|cpp|h))(:\d+)(:\d+)?', 
                            r'\1:LINE\3', normalized)
-        
-        # Replace specific variable values
+          
         normalized = re.sub(r'value=["\'][^"\']*["\']', 'value=VALUE', normalized)
         normalized = re.sub(r'port \d+', 'port PORT', normalized)
         
-        # Handle JSON-like structures (preserve keys but replace values)
         normalized = re.sub(r'("|\')[\w\s]+\1\s*:\s*("|\')[^"\']*\2', r'\1KEY\1: \2VALUE\2', normalized)
-        
-        # .NET specific normalizations
+
         normalized = re.sub(r'\'[^\']+\'', "'VALUE'", normalized)
         normalized = re.sub(r'"[^"]+"', '"VALUE"', normalized)
+        
         normalized = re.sub(r'requiredField\w+', 'requiredField', normalized, flags=re.IGNORECASE)
         
-        # Special handling for .NET inner exceptions
         normalized = re.sub(r'-{3,}>\s*$', '---> INNER_EXCEPTION', normalized)
         
         return normalized
@@ -302,25 +289,14 @@ class LogRecommendationSystem:
         """Extract exception type from log message"""
         if not log_text:
             return None
-        
-        # Various patterns for exception types
         patterns = [
-            # .NET exceptions
             r'(System\.[A-Za-z0-9\.]+Exception)',
-            
-            # Java exceptions
             r'(java\.[a-z0-9\.]+Exception)',
             r'(org\.[a-z0-9\.]+Exception)',
             r'(com\.[a-z0-9\.]+Exception)',
-            
-            # General exceptions
             r'([A-Z][A-Za-z0-9]+Exception)',
-            r'Exception: ([A-Z][A-Za-z0-9]+Error)',
-            
-            # JavaScript errors
+            r'Exception: ([A-Z][A-Za-z0-9]+Error)',            
             r'(TypeError|SyntaxError|ReferenceError|RangeError|URIError|EvalError)',
-            
-            # Python exceptions
             r'(ValueError|TypeError|KeyError|IndexError|AttributeError|ImportError|RuntimeError|NameError)'
         ]
         
